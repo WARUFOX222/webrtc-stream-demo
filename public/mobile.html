@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Camera Sender</title>
+</head>
+<body>
+  <video id="camera" autoplay playsinline muted style="width: 100%; max-width: 600px;"></video>
+
+  <script>
+    const video = document.getElementById('camera');
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get('room') || "1234";
+    const socket = new WebSocket('wss://' + location.hostname + '/ws');
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      video.srcObject = stream;
+      const peer = new RTCPeerConnection();
+      stream.getTracks().forEach(track => peer.addTrack(track, stream));
+
+      peer.createOffer().then(offer => {
+        peer.setLocalDescription(offer);
+        socket.onopen = () => {
+          socket.send(JSON.stringify({ type: 'offer', data: offer }));
+        };
+      });
+
+      socket.onmessage = (msg) => {
+        const { type, data } = JSON.parse(msg.data);
+        if (type === 'answer') {
+          peer.setRemoteDescription(new RTCSessionDescription(data));
+        }
+      };
+    });
+  </script>
+</body>
+</html>

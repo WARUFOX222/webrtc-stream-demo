@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scan to Share Camera</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+</head>
+<body>
+  <h2>Scan QR to Share Camera</h2>
+  <canvas id="qrcode"></canvas>
+  <video id="remote" autoplay playsinline style="width: 100%; max-width: 600px;"></video>
+
+  <script>
+    const room = "1234";
+    const link = location.origin + "/mobile.html?room=" + room;
+    QRCode.toCanvas(document.getElementById('qrcode'), link);
+
+    const video = document.getElementById('remote');
+    const peer = new RTCPeerConnection();
+    const socket = new WebSocket('wss://' + location.hostname + '/ws');
+
+    socket.onmessage = (msg) => {
+      const { type, data } = JSON.parse(msg.data);
+      if (type === 'offer') {
+        peer.setRemoteDescription(new RTCSessionDescription(data)).then(() => {
+          return peer.createAnswer();
+        }).then(answer => {
+          peer.setLocalDescription(answer);
+          socket.send(JSON.stringify({ type: 'answer', data: answer }));
+        });
+      }
+    };
+
+    peer.ontrack = (event) => {
+      video.srcObject = event.streams[0];
+    };
+  </script>
+</body>
+</html>
